@@ -19,7 +19,7 @@
 // Moreover, as you don't need to configure the context, you don't need the device (and therefore the
 // adapter) in the first place.
 
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, PixelRatio } from 'react-native';
 import { Canvas, CanvasRef, RNCanvasContext } from 'react-native-webgpu';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three/webgpu';
@@ -36,12 +36,24 @@ export default function App() {
   useEffect(() => {
     const context = canvasRef?.current?.getContext('webgpu');
     if (context) {
-      initScene(context);
+
+      initDevice().then(device => {
+          initScene(context, device);
+      });
     }
   }, []);
 
-  async function initScene(context: RNCanvasContext) {
+  async function initDevice() : Promise<GPUDevice> {
+    const adapter = await navigator.gpu.requestAdapter();
+    const device = await adapter!.requestDevice();
+    return device;
+  }
+
+  async function initScene(context: RNCanvasContext, device: GPUDevice) {
     const canvas = context.canvas as HTMLCanvasElement;
+    canvas.width = canvas.clientWidth * PixelRatio.get();
+    canvas.height = canvas.clientHeight * PixelRatio.get();
+
     const camera = new THREE.PerspectiveCamera(70, canvas.clientWidth / canvas.clientHeight, 0.001, 1000);
     const renderer = new THREE.WebGPURenderer({
       antialias: true,
@@ -49,6 +61,7 @@ export default function App() {
       context
     });
 
+    
     await renderer.init();
 
     const scene = new THREE.Scene();
@@ -66,7 +79,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Canvas ref={canvasRef} style={StyleSheet.absoluteFill}></Canvas>
+      <Canvas ref={canvasRef} transparent style={StyleSheet.absoluteFill}></Canvas>
     </View>
   );
 }
