@@ -24,6 +24,10 @@ import { Canvas, CanvasRef, RNCanvasContext } from 'react-native-webgpu';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three/webgpu';
 
+interface WebGPUConfig {
+  device: GPUDevice;
+  context: RNCanvasContext;
+}
 export default function App() {
 
   const canvasRef = useRef<CanvasRef>(null);
@@ -36,9 +40,8 @@ export default function App() {
   useEffect(() => {
     const context = canvasRef?.current?.getContext('webgpu');
     if (context) {
-
       initDevice().then(device => {
-          initScene(context, device);
+          initScene({context, device});
       });
     }
   }, []);
@@ -49,16 +52,25 @@ export default function App() {
     return device;
   }
 
-  async function initScene(context: RNCanvasContext, device: GPUDevice) {
-    const canvas = context.canvas as HTMLCanvasElement;
+  async function initScene(config: WebGPUConfig) {
+    const canvas = config.context.canvas as HTMLCanvasElement;
+    
     canvas.width = canvas.clientWidth * PixelRatio.get();
     canvas.height = canvas.clientHeight * PixelRatio.get();
+
+    /* This will not work on my device with the given crash (Pixel 3, Android 15, Expo dev build)
+    config.context.configure({
+      device: config.device,
+      format: navigator.gpu.getPreferredCanvasFormat(),
+      alphaMode: "premultiplied"
+    })
+    */
 
     const camera = new THREE.PerspectiveCamera(70, canvas.clientWidth / canvas.clientHeight, 0.001, 1000);
     const renderer = new THREE.WebGPURenderer({
       antialias: true,
-      canvas: context.canvas,
-      context
+      canvas: config.context.canvas,
+      context: config.context,
     });
 
     
@@ -73,13 +85,13 @@ export default function App() {
 
     renderer.setAnimationLoop(() => {
       renderer.render(scene, camera);
-      context.present();
+      config.context.present();
     });
   }
 
   return (
     <View style={styles.container}>
-      <Canvas ref={canvasRef} transparent style={StyleSheet.absoluteFill}></Canvas>
+      <Canvas ref={canvasRef} style={StyleSheet.absoluteFill}></Canvas>
     </View>
   );
 }
